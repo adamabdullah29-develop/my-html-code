@@ -14154,7 +14154,7 @@ const FOCC_USER_ROLE_SUGGESTIONS = ['SuperAdmin', 'Admin', 'Manager', 'Operation
 
    Poll hanya hidup semasa page User Manager terbuka & user login.
 --------------------------------------------------------------------- */
-const UM_POLL_MS = 15000;      // 15 saat — naikkan ke 30000 kalau nak lebih jimat
+const UM_POLL_MS = 5000;      // 5 saat — naikkan ke 30000 kalau nak lebih jimat
 let umPollTimer = null;
 
 function umLiveTickStop(){
@@ -14164,11 +14164,12 @@ function umLiveTickStop(){
 }
 
 async function umLiveTick(){
+  console.log('UM TICK');
   const wrapNow = document.getElementById('umPageWrap') || document.getElementById('umSearchEmail');
 
-  // Keluar page User Manager (wrap tiada) atau sudah logout (channel realtime mati)
+  // Keluar page User Manager atau timer sudah dihentikan
   // → bersihkan timer & listener, jangan tinggal poll tergantung.
-  if (!wrapNow || !FOCC_RT_CHANNEL || !umPollTimer){ umLiveTickStop(); return; }
+  if (!wrapNow || !umPollTimer){ umLiveTickStop(); return; }
 
   if (document.hidden) return;              // tab tak nampak — jangan tanya server
   if (foccRealtimeModalOpen()) return;      // borang terbuka — jangan ganggu
@@ -14182,10 +14183,17 @@ async function umLiveTick(){
 }
 
 function umLiveStart(){
-  umLiveTickStop();                                     // elak timer berganda
+  console.log('UM START');
+  umLiveTickStop();
+
   document.addEventListener('visibilitychange', umLiveTick);
-  window.addEventListener('focus', umLiveTick);         // balik ke tab → tarik SERTA-MERTA
+
+  window.addEventListener('focus', umLiveTick);
+
   umPollTimer = setInterval(umLiveTick, UM_POLL_MS);
+
+  // tarik sekali masa page buka
+  setTimeout(umLiveTick, 1000);
 }
 
 /* ---- 4.22 USER MANAGER (FOCC Auth) ---- */
@@ -14623,6 +14631,7 @@ function renderUserManagerMetricsGrid(list){
 }
 
 async function renderUserManagerPage(){
+  console.log('USER MANAGER LOADED');
   let users = [];
   let loadError = '';
   try{ users = await fetchFoccUsers(); }catch(e){ loadError = String(e && e.message || e); }
@@ -14672,11 +14681,15 @@ async function renderUserManagerPage(){
 
     // Live: refresh senarai user + metrik tanpa reload
   FOCC_ADMIN_LIVE_REFRESH = async () => {
+    console.log('REFRESH USERS');
     users = await fetchFoccUsers();
     updateCountEyebrow();
     renderRows();
     refreshUserMetrics();
   };
+
+  // Start live refresh selepas callback siap didaftarkan
+    foccAdminLiveStart('userManager');
 
   function renderRows(){
     const qEmail = wrap.querySelector('#umSearchEmail').value.trim().toLowerCase();
@@ -14788,9 +14801,6 @@ async function renderUserManagerPage(){
       }
     }
   });
-
-  // ▼ Hidupkan live sync User Manager: perubahan admin lain muncul ≤15 saat
-  umLiveStart();
 
   return wrap;
 }
